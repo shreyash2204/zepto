@@ -30,7 +30,8 @@ output_csv = f"output_products_{today_date}.csv"
 # Initialize the Chrome browser
 chrome_options = Options()
 chrome_options.add_argument("--start-maximized")
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+chrome_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
+driver = webdriver.Chrome(options=chrome_options)
 wait = WebDriverWait(driver, 10)
 
 # Open Zepto and prompt for pincode input
@@ -107,6 +108,22 @@ while True:
                             break  # Exit the loop once the value is found
             except Exception as e:
                 print(f"Error extracting 'Pack of': {e}")
+                
+             # Extract "weight" value
+            weight = "N/A"
+            try:
+                # Locate the highlights section
+                highlights_div = soup.find("div", id="productHighlights")
+                if highlights_div:
+                    # Find the 'Weight' label within the section
+                    pack_of_div = highlights_div.find_all("div", class_="flex items-start gap-3")
+                    for div in pack_of_div:
+                        label = div.find("h3")
+                        if label and "weight" in label.get_text(strip=True).lower():
+                            weight = div.find("p").get_text(strip=True)
+                            break  # Exit the loop once the value is found
+            except Exception as e:
+                print(f"Error extracting 'Weight': {e}")
 
             # Check for out-of-stock status
             out_of_stock_div = soup.find("div", class_="mb-5 flex flex-col items-center justify-center rounded-[10px] bg-[#FDEDED] p-2")
@@ -121,6 +138,8 @@ while True:
                 "MRP": mrp,
                 "Out of Stock": out_of_stock,
                 "Pack of": pack_of_value,
+                "Weight": weight
+                
             })
 
             print(f"{counter}. Processed URL: {url}")  # Print with counter
