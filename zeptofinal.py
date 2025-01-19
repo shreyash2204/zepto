@@ -12,6 +12,7 @@ from datetime import datetime
 
 # Prompt user for the input CSV file path
 input_csv = input("Enter the path to the input CSV file containing SKUs: ").strip()
+# input_csv = "inputfile/input.csv"
 
 # Validate the input file
 try:
@@ -33,6 +34,7 @@ base_url = "https://www.zeptonow.com/pn/lays-american-cream-onion-potato-chips/p
 # Initialize the Chrome browser
 chrome_options = Options()
 chrome_options.add_argument("--start-maximized")
+chrome_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 wait = WebDriverWait(driver, 10)
 
@@ -78,17 +80,11 @@ while True:
 
             # Extract quantity and pack
             p_tag_description = soup.find("p", class_="mt-2 text-sm leading-4 text-[#757C8D]")
-            quantity, pack = "N/A", "1"
+            net_quantity = "N/A"
             if p_tag_description:
                 span_tag = p_tag_description.find("span", class_="font-bold")
                 if span_tag:
-                    quantity_text = span_tag.get_text(strip=True)
-                    match = re.search(r'X\s*(\d+)', quantity_text)
-                    if match:
-                        pack = match.group(1)
-                        quantity = re.sub(r'\s*X\s*\d+', '', quantity_text).strip()
-                    else:
-                        quantity = quantity_text.strip()
+                    net_quantity = span_tag.get_text(strip=True)
 
             # Extract selling price
             p_tag_price = soup.find("p", class_="flex items-center justify-center gap-2")
@@ -101,6 +97,38 @@ while True:
                 span_mrp = p_tag_mrp.find("span", class_="line-through font-bold")
                 if span_mrp:
                     mrp = span_mrp.get_text(strip=True)
+                    
+            # Extract "Pack of" value
+            pack_of_value = "N/A"
+            try:
+                # Locate the highlights section
+                highlights_div = soup.find("div", id="productHighlights")
+                if highlights_div:
+                    # Find the 'pack of' label within the section
+                    pack_of_div = highlights_div.find_all("div", class_="flex items-start gap-3")
+                    for div in pack_of_div:
+                        label = div.find("h3")
+                        if label and "pack of" in label.get_text(strip=True).lower():
+                            pack_of_value = div.find("p").get_text(strip=True)
+                            break  # Exit the loop once the value is found
+            except Exception as e:
+                print(f"Error extracting 'Pack of': {e}")
+                
+            # Extract "weight" value
+            weight = "N/A"
+            try:
+                # Locate the highlights section
+                highlights_div = soup.find("div", id="productHighlights")
+                if highlights_div:
+                    # Find the 'Weight' label within the section
+                    pack_of_div = highlights_div.find_all("div", class_="flex items-start gap-3")
+                    for div in pack_of_div:
+                        label = div.find("h3")
+                        if label and "weight" in label.get_text(strip=True).lower():
+                            weight = div.find("p").get_text(strip=True)
+                            break  # Exit the loop once the value is found
+            except Exception as e:
+                print(f"Error extracting 'Weight': {e}")
 
             # Check for out-of-stock status
             out_of_stock_div = soup.find("div", class_="mb-5 flex flex-col items-center justify-center rounded-[10px] bg-[#FDEDED] p-2")
@@ -110,11 +138,12 @@ while True:
             products_data.append({
                 "SKU": sku,
                 "Product Name": product_name,
-                "Quantity": quantity,
-                "Pack": pack,
+                "Net Quantity": net_quantity,
                 "Selling Price": selling_price,
                 "MRP": mrp,
-                "Out of Stock": out_of_stock
+                "Out of Stock": out_of_stock,
+                "Pack of": pack_of_value,
+                "Weight": weight
             })
 
             print(f"{counter}. Processed SKU: {sku}")  # Print with counter
